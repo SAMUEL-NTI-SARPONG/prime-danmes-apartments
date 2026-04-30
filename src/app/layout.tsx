@@ -19,10 +19,6 @@ export const metadata: Metadata = {
     "Prime Danmes Apartments & Short Stays | Your Luxurious Home and Event Grounds",
   description:
     "Your Luxurious Home and Event Grounds. Discover luxury apartment living at Prime Danmes Apartments and Short Stays in Anaji, Takoradi, Ghana.",
-  icons: {
-    icon: "/danmes-logo.jpeg",
-    apple: "/danmes-logo.jpeg",
-  },
 };
 
 export default function RootLayout({
