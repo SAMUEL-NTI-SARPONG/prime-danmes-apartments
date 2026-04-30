@@ -386,6 +386,7 @@ function ListingsTab({
               showToast("Apartment added successfully");
             }}
             onCancel={() => setAddOpen(false)}
+            showToast={showToast}
           />
         </Dialog>
       </div>
@@ -437,6 +438,7 @@ function ListingsTab({
               showToast(`${updated.name} updated successfully`);
             }}
             onCancel={() => setEditApt(null)}
+            showToast={showToast}
           />
         )}
       </Dialog>
@@ -597,11 +599,13 @@ function ApartmentFormDialog({
   initial,
   onSave,
   onCancel,
+  showToast,
 }: {
   mode: "add" | "edit";
   initial?: Apartment;
   onSave: (apt: Apartment) => void;
   onCancel: () => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
 }) {
   const [form, setForm] = useState<Apartment>(
     initial ?? createEmptyApartment(),
@@ -631,6 +635,11 @@ function ApartmentFormDialog({
       fd.append("file", file);
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(
+          data.error ?? `Upload failed (${res.status}). Check your connection and try again.`,
+          "error",
+        );
         setUploading(false);
         return;
       }
@@ -639,8 +648,11 @@ function ApartmentFormDialog({
         images: [...form.images, url],
         image: form.image || url,
       });
-    } catch {
-      // silently fail
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Image upload failed. Please try again.",
+        "error",
+      );
     }
     setUploading(false);
   };
@@ -1218,7 +1230,7 @@ function BookingsTab({
 
               {/* Section: Employment & Emergency */}
               <DetailSection icon={Briefcase} title="Employment & Emergency">
-                <DetailRow label="Employer" value={selectedBooking.employer} />
+                <DetailRow label="Purpose of Stay" value={selectedBooking.employer} />
                 <DetailRow
                   label="Emergency Contact"
                   value={selectedBooking.emergencyName}

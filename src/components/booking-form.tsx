@@ -31,6 +31,7 @@ interface BookingFormProps {
 export default function BookingForm({ apartment }: BookingFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [bookingId, setBookingId] = useState("");
   const addBooking = useApartmentStore((s) => s.addBooking);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -59,6 +60,7 @@ export default function BookingForm({ apartment }: BookingFormProps) {
     const result = await addBooking(bookingData);
     setSubmitting(false);
     if (result) {
+      setBookingId(result.id);
       setSuccess(true);
     }
   };
@@ -183,11 +185,11 @@ export default function BookingForm({ apartment }: BookingFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="employer">Employer / Occupation *</Label>
+          <Label htmlFor="employer">Purpose of Stay *</Label>
           <Input
             id="employer"
             name="employer"
-            placeholder="Company name or self-employed"
+            placeholder="e.g. Tourism, Business trip, Relocation, Family visit..."
             required
           />
         </div>
@@ -254,10 +256,21 @@ export default function BookingForm({ apartment }: BookingFormProps) {
             <DialogTitle className="text-xl">
               Booking Request Submitted!
             </DialogTitle>
-            <DialogDescription className="text-center">
-              Thank you for your interest in <strong>{apartment.name}</strong>.
-              Our team will review your application and contact you within 24
-              hours. You can also reach us on WhatsApp at +233 24 489 3605.
+            <DialogDescription className="text-center space-y-3">
+              <span className="block">
+                Thank you for your interest in <strong>{apartment.name}</strong>.
+                Our team will review your application and contact you within 24
+                hours.
+              </span>
+              {bookingId && (
+                <span className="block rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
+                  <span className="block text-xs text-muted-foreground mb-1">Your Booking Reference</span>
+                  <span className="text-lg font-bold tracking-widest text-primary">{bookingId}</span>
+                </span>
+              )}
+              <span className="block text-xs">
+                You can also reach us on WhatsApp at +233 24 489 3605.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <Button

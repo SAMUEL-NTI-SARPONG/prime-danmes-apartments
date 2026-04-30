@@ -17,6 +17,16 @@ export function cuid(): string {
   return crypto.randomBytes(12).toString("hex");
 }
 
+/** Generates a human-readable booking reference, e.g. PDA-20260430-A4F2C3 */
+export function bookingRef(): string {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  const suffix = crypto.randomBytes(3).toString("hex").toUpperCase();
+  return `PDA-${y}${m}${d}-${suffix}`;
+}
+
 // Track initialization per process lifetime — reset on failure so retries work
 let _initialized = false;
 

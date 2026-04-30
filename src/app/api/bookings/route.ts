@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, ensureTables, cuid } from "@/lib/db";
+import { sql, ensureTables, bookingRef } from "@/lib/db";
 
 // GET all bookings
 export async function GET() {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const id = cuid();
+    const id = bookingRef();
     const amount = typeof body.amount === "number" ? body.amount : 0;
 
     const [booking] = await sql`
