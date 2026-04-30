@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bed, Bath, Maximize, Star } from "lucide-react";
+import { Bed, Bath, Maximize } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Apartment } from "@/lib/data";
 
@@ -48,10 +48,6 @@ export default function ApartmentCard({ apartment }: { apartment: Apartment }) {
               <h3 className="text-[15px] font-semibold leading-tight text-foreground">
                 {apartment.name}
               </h3>
-              <div className="flex shrink-0 items-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-foreground text-foreground" />
-                <span className="text-sm font-medium">4.9</span>
-              </div>
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {typeLabels[apartment.type] || apartment.type} &middot; Floor{" "}

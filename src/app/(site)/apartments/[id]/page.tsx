@@ -11,7 +11,6 @@ import {
   Check,
   Phone,
   Mail,
-  Star,
   Building2,
   User,
   Briefcase,
@@ -124,8 +123,7 @@ export default function ApartmentDetailPage() {
                 className="h-full w-full object-cover transition-all duration-500"
               />
               {apartment.featured && (
-                <Badge className="absolute left-4 top-4 gap-1 bg-white/95 text-foreground backdrop-blur-sm shadow-sm">
-                  <Star className="h-3 w-3 fill-primary text-primary" />
+                <Badge className="absolute left-4 top-4 bg-white/95 text-foreground backdrop-blur-sm shadow-sm">
                   Guest favourite
                 </Badge>
               )}
