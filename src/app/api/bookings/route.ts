@@ -15,8 +15,8 @@ async function sendWhatsAppNotification(phone: string, apiKey: string, message: 
 async function sendAdminEmail(params: Record<string, string>) {
   try {
     const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") return;
-    await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") { console.error("EMAILJS_PUBLIC_KEY not set"); return; }
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -26,6 +26,9 @@ async function sendAdminEmail(params: Record<string, string>) {
         template_params: params,
       }),
     });
+    const text = await res.text();
+    if (!res.ok) console.error("Admin email failed:", res.status, text);
+    else console.log("Admin email sent:", text);
   } catch (e) {
     console.error("Admin email notification failed:", e);
   }
@@ -34,8 +37,8 @@ async function sendAdminEmail(params: Record<string, string>) {
 async function sendGuestEmail(params: Record<string, string>) {
   try {
     const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") return;
-    await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") { console.error("EMAILJS_PUBLIC_KEY not set"); return; }
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,6 +48,9 @@ async function sendGuestEmail(params: Record<string, string>) {
         template_params: params,
       }),
     });
+    const text = await res.text();
+    if (!res.ok) console.error("Guest email failed:", res.status, text);
+    else console.log("Guest email sent:", text);
   } catch (e) {
     console.error("Guest email notification failed:", e);
   }
@@ -158,8 +164,11 @@ export async function POST(req: NextRequest) {
     if (wa1Key) sendWhatsAppNotification("233244893605", wa1Key, waMessage);
     if (wa2Key) sendWhatsAppNotification("12404756569",  wa2Key, waMessage);
 
-    sendAdminEmail({ ...notifParams, to_email: "pdanmes@gmail.com" });
-    sendGuestEmail({ ...notifParams, to_email: booking.email });
+    // Await emails so serverless function doesn't terminate before they fire
+    await Promise.allSettled([
+      sendAdminEmail({ ...notifParams, to_email: "pdanmes@gmail.com" }),
+      sendGuestEmail({ ...notifParams, to_email: booking.email }),
+    ]);
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {
