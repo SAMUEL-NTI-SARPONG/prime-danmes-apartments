@@ -453,16 +453,16 @@ export default function ApartmentDetailPage() {
                     <div className="space-y-3">
                       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
                         <Briefcase className="h-3.5 w-3.5" />
-                        Employment & Emergency
+                        Stay Details & Emergency
                       </p>
                       <div>
                         <Label htmlFor="employer" className="text-sm">
-                          Employer / Occupation *
+                          Purpose of Stay *
                         </Label>
                         <Input
                           id="employer"
                           name="employer"
-                          placeholder="e.g. Ghana Commercial Bank"
+                          placeholder="e.g. Tourism, Business trip, Relocation, Family visit..."
                           className="mt-1"
                           required
                         />
