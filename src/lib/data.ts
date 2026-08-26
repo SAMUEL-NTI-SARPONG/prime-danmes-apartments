@@ -20,21 +20,33 @@ export interface Apartment {
 }
 
 // ─── Shared gallery images ────────────────────────────────
-// All 5 units share the same interior. Each unit uses a different
-// "hero" image (first in array) so the cards look distinct, then
-// the remaining shots form a shared gallery showing every angle.
-const sharedGallery = [
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80", // living room wide
-  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80", // bedroom
-  "https://images.unsplash.com/photo-1560440021-33f9b867899d?w=800&q=80", // kitchen
-  "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800&q=80", // bathroom
-  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80", // exterior
+// These are the 17 photos from the property's Airbnb photo tour. All five
+// apartments share the same layout, so every unit gets the complete gallery
+// with a different first image to keep the listing cards visually distinct.
+export const propertyGallery = [
+  "/images/danmes/living-room-bright.avif",
+  "/images/danmes/living-room-wide.avif",
+  "/images/danmes/living-room-evening.avif",
+  "/images/danmes/dining-kitchen-wide.avif",
+  "/images/danmes/dining-area-close.avif",
+  "/images/danmes/bedroom-primary-front.avif",
+  "/images/danmes/bedroom-primary-angle.avif",
+  "/images/danmes/bedroom-secondary-front.avif",
+  "/images/danmes/bedroom-secondary-tv.avif",
+  "/images/danmes/bedroom-secondary-vanity.avif",
+  "/images/danmes/bathroom-shower.avif",
+  "/images/danmes/bathroom-vanity.avif",
+  "/images/danmes/exterior-front-day.avif",
+  "/images/danmes/exterior-entrance.avif",
+  "/images/danmes/exterior-side.avif",
+  "/images/danmes/exterior-garden.avif",
+  "/images/danmes/exterior-front-night.avif",
 ];
 
 // Each unit picks a different index as its cover photo
 function buildImages(heroIndex: number): string[] {
-  const hero = sharedGallery[heroIndex];
-  const rest = sharedGallery.filter((_, i) => i !== heroIndex);
+  const hero = propertyGallery[heroIndex];
+  const rest = propertyGallery.filter((_, i) => i !== heroIndex);
   return [hero, ...rest];
 }
 
@@ -59,7 +71,7 @@ export const apartments: Apartment[] = [
     price: 0,
     pricePeriod: "per month",
     showPrice: false,
-    image: sharedGallery[0],
+    image: propertyGallery[0],
     images: buildImages(0),
     beds: 2,
     baths: 2,
@@ -77,8 +89,8 @@ export const apartments: Apartment[] = [
     price: 0,
     pricePeriod: "per month",
     showPrice: false,
-    image: sharedGallery[1],
-    images: buildImages(1),
+    image: propertyGallery[5],
+    images: buildImages(5),
     beds: 2,
     baths: 2,
     sqft: 980,
@@ -95,8 +107,8 @@ export const apartments: Apartment[] = [
     price: 0,
     pricePeriod: "per month",
     showPrice: false,
-    image: sharedGallery[2],
-    images: buildImages(2),
+    image: propertyGallery[3],
+    images: buildImages(3),
     beds: 2,
     baths: 2,
     sqft: 980,
@@ -113,8 +125,8 @@ export const apartments: Apartment[] = [
     price: 0,
     pricePeriod: "per month",
     showPrice: false,
-    image: sharedGallery[3],
-    images: buildImages(3),
+    image: propertyGallery[12],
+    images: buildImages(12),
     beds: 2,
     baths: 2,
     sqft: 980,
@@ -131,8 +143,8 @@ export const apartments: Apartment[] = [
     price: 0,
     pricePeriod: "per month",
     showPrice: false,
-    image: sharedGallery[4],
-    images: buildImages(4),
+    image: propertyGallery[1],
+    images: buildImages(1),
     beds: 2,
     baths: 2,
     sqft: 980,

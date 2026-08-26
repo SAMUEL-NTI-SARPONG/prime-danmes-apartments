@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, ensureTables, cuid } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin-auth";
+import {
+  createContactRecord,
+  listContactRecords,
+} from "@/lib/repository";
 
-// POST — save a contact message
+async function notifyManager(record: Awaited<ReturnType<typeof createContactRecord>>) {
+  if (!process.env.WEB3FORMS_ACCESS_KEY) return;
+  const response = await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      access_key: process.env.WEB3FORMS_ACCESS_KEY,
+      subject: `Website enquiry: ${record.subject}`,
+      from_name: "Prime Danmes Website",
+      email: record.email,
+      Name: `${record.firstName} ${record.lastName}`,
+      Phone: record.phone || "Not provided",
+      message: record.message,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Web3Forms returned HTTP ${response.status}`);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    await ensureTables();
     const body = await req.json();
-
-    const required = ["firstName", "lastName", "email", "subject", "message"];
-    for (const field of required) {
+    for (const field of ["firstName", "lastName", "email", "subject", "message"]) {
       if (!body[field] || String(body[field]).trim() === "") {
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
@@ -16,37 +36,30 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-
-    const id = cuid();
-
-    await sql`
-      INSERT INTO "ContactMessage" (
-        id, "firstName", "lastName", email, phone, subject, message
-      ) VALUES (
-        ${id},
-        ${String(body.firstName).trim()},
-        ${String(body.lastName).trim()},
-        ${String(body.email).trim()},
-        ${body.phone ? String(body.phone).trim() : ""},
-        ${String(body.subject).trim()},
-        ${String(body.message).trim()}
-      )
-    `;
-
-    return NextResponse.json({ success: true, id }, { status: 201 });
+    const record = await createContactRecord({
+      firstName: String(body.firstName).trim(),
+      lastName: String(body.lastName).trim(),
+      email: String(body.email).trim().toLowerCase(),
+      phone: body.phone ? String(body.phone).trim() : "",
+      subject: String(body.subject).trim(),
+      message: String(body.message).trim(),
+    });
+    await notifyManager(record).catch((error) =>
+      console.error("Contact notification failed:", error),
+    );
+    return NextResponse.json({ success: true, id: record.id }, { status: 201 });
   } catch (error) {
     console.error("POST /api/contact error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 
-// GET — list contact messages (admin use)
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
-    const rows =
-      await sql`SELECT * FROM "ContactMessage" ORDER BY "createdAt" DESC`;
-    return NextResponse.json(rows);
+    return NextResponse.json(await listContactRecords());
   } catch (error) {
     console.error("GET /api/contact error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

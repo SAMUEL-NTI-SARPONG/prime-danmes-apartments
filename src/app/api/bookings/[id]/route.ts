@@ -1,33 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, ensureTables } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin-auth";
+import {
+  deleteBookingRecord,
+  updateBookingStatusRecord,
+  type BookingStatus,
+} from "@/lib/repository";
 
-// PATCH — update booking status
+const validStatuses: BookingStatus[] = [
+  "pending",
+  "confirmed",
+  "checked-in",
+  "completed",
+  "cancelled",
+];
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
     const { id } = await params;
     const body = await req.json();
-
-    const validStatuses = [
-      "pending",
-      "confirmed",
-      "checked-in",
-      "completed",
-      "cancelled",
-    ];
-
-    if (body.status && !validStatuses.includes(body.status)) {
+    if (!validStatuses.includes(body.status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
-
-    if (body.status) {
-      await sql`UPDATE "Booking" SET status = ${body.status} WHERE id = ${id}`;
-    }
-
-    const [booking] = await sql`SELECT * FROM "Booking" WHERE id = ${id}`;
+    const booking = await updateBookingStatusRecord(id, body.status);
     if (!booking) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -38,15 +38,19 @@ export async function PATCH(
   }
 }
 
-// DELETE booking
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
     const { id } = await params;
-    await sql`DELETE FROM "Booking" WHERE id = ${id}`;
+    const deleted = await deleteBookingRecord(id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/bookings/[id] error:", error);

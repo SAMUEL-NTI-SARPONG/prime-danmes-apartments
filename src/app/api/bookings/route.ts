@@ -1,87 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, ensureTables, bookingRef } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin-auth";
+import { notifyManagerOfBooking } from "@/lib/notifications";
+import {
+  createBookingRecord,
+  listApartments,
+  listBookings,
+} from "@/lib/repository";
 
-// ─── Notification helpers (fire-and-forget, never fail the booking) ────────
-
-async function sendWhatsAppNotification(phone: string, apiKey: string, message: string) {
-  try {
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(message)}&apikey=${apiKey}`;
-    await fetch(url);
-  } catch (e) {
-    console.error(`WhatsApp notification to ${phone} failed:`, e);
-  }
-}
-
-async function sendAdminEmail(params: Record<string, string>) {
-  try {
-    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") { console.error("EMAILJS_PUBLIC_KEY not set"); return; }
-    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        service_id: "service_danmes",
-        template_id: "template_booking_admin",
-        user_id: publicKey,
-        template_params: params,
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) console.error("Admin email failed:", res.status, text);
-    else console.log("Admin email sent:", text);
-  } catch (e) {
-    console.error("Admin email notification failed:", e);
-  }
-}
-
-async function sendGuestEmail(params: Record<string, string>) {
-  try {
-    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-    if (!publicKey || publicKey === "YOUR_PUBLIC_KEY") { console.error("EMAILJS_PUBLIC_KEY not set"); return; }
-    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        service_id: "service_danmes",
-        template_id: "template_booking",
-        user_id: publicKey,
-        template_params: params,
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) console.error("Guest email failed:", res.status, text);
-    else console.log("Guest email sent:", text);
-  } catch (e) {
-    console.error("Guest email notification failed:", e);
-  }
-}
-
-// GET all bookings
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
-    const bookings =
-      await sql`SELECT * FROM "Booking" ORDER BY "createdAt" DESC`;
-    return NextResponse.json(bookings);
+    return NextResponse.json(await listBookings());
   } catch (error) {
     console.error("GET /api/bookings error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 
-// POST new booking
 export async function POST(req: NextRequest) {
   try {
-    await ensureTables();
     const body = await req.json();
-
     const required = [
       "firstName",
       "lastName",
       "email",
       "phone",
       "ghanaCard",
-      "apartment",
       "apartmentId",
       "moveInDate",
       "leaseDuration",
@@ -90,7 +36,6 @@ export async function POST(req: NextRequest) {
       "emergencyName",
       "emergencyPhone",
     ];
-
     for (const field of required) {
       if (!body[field] || String(body[field]).trim() === "") {
         return NextResponse.json(
@@ -100,79 +45,64 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const id = bookingRef();
-    const amount = typeof body.amount === "number" ? body.amount : 0;
+    const email = String(body.email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
+    }
+    const ghanaCard = String(body.ghanaCard).trim().toUpperCase();
+    if (!/^GHA-\d{9}-\d$/.test(ghanaCard)) {
+      return NextResponse.json(
+        { error: "Ghana Card must use the format GHA-123456789-0" },
+        { status: 400 },
+      );
+    }
+    const moveInDate = String(body.moveInDate).trim();
+    const today = new Date().toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(moveInDate) || moveInDate < today) {
+      return NextResponse.json(
+        { error: "Check-in date cannot be in the past" },
+        { status: 400 },
+      );
+    }
 
-    const [booking] = await sql`
-      INSERT INTO "Booking" (
-        id, "firstName", "lastName", email, phone, "ghanaCard",
-        apartment, "apartmentId", "moveInDate", "leaseDuration", occupants,
-        employer, "emergencyName", "emergencyPhone", notes, status, amount
-      ) VALUES (
-        ${id},
-        ${String(body.firstName).trim()},
-        ${String(body.lastName).trim()},
-        ${String(body.email).trim()},
-        ${String(body.phone).trim()},
-        ${String(body.ghanaCard).trim()},
-        ${String(body.apartment).trim()},
-        ${String(body.apartmentId).trim()},
-        ${String(body.moveInDate).trim()},
-        ${String(body.leaseDuration).trim()},
-        ${String(body.occupants).trim()},
-        ${String(body.employer).trim()},
-        ${String(body.emergencyName).trim()},
-        ${String(body.emergencyPhone).trim()},
-        ${body.notes ? String(body.notes).trim() : ""},
-        'pending',
-        ${amount}
-      ) RETURNING *
-    `;
+    const apartment = (await listApartments()).find(
+      (item) => item.id === String(body.apartmentId),
+    );
+    if (!apartment) {
+      return NextResponse.json({ error: "Apartment not found" }, { status: 404 });
+    }
+    if (!apartment.available) {
+      return NextResponse.json(
+        { error: "This apartment is currently unavailable" },
+        { status: 409 },
+      );
+    }
 
-    // ── Fire notifications (non-blocking — do not await, never fail booking) ──
-    const notifParams = {
-      booking_ref:    booking.id,
-      guest_name:     `${booking.firstName} ${booking.lastName}`,
-      guest_email:    booking.email,
-      guest_phone:    booking.phone,
-      apartment_name: booking.apartment,
-      check_in:       booking.moveInDate,
-      lease_duration: booking.leaseDuration,
-      occupants:      String(booking.occupants),
-      purpose:        booking.employer,
-      amount:         String(booking.amount),
-      emergency_name: booking.emergencyName,
-      emergency_phone:booking.emergencyPhone,
-    };
+    const booking = await createBookingRecord({
+      firstName: String(body.firstName).trim(),
+      lastName: String(body.lastName).trim(),
+      email,
+      phone: String(body.phone).trim(),
+      ghanaCard,
+      apartment: apartment.name,
+      apartmentId: apartment.id,
+      moveInDate,
+      leaseDuration: String(body.leaseDuration).trim(),
+      occupants: String(body.occupants).trim(),
+      employer: String(body.employer).trim(),
+      emergencyName: String(body.emergencyName).trim(),
+      emergencyPhone: String(body.emergencyPhone).trim(),
+      notes: body.notes ? String(body.notes).trim() : "",
+      amount: apartment.price,
+    });
 
-    const waMessage =
-      `🏠 NEW BOOKING — Prime Danmes Apartments\n\n` +
-      `Ref: ${booking.id}\n` +
-      `Guest: ${booking.firstName} ${booking.lastName}\n` +
-      `Phone: ${booking.phone}\n` +
-      `Email: ${booking.email}\n` +
-      `Apartment: ${booking.apartment}\n` +
-      `Check-in: ${booking.moveInDate}\n` +
-      `Duration: ${booking.leaseDuration}\n` +
-      `Guests: ${booking.occupants}\n` +
-      `Purpose: ${booking.employer}\n` +
-      `Amount: GHS ${booking.amount}\n\n` +
-      `Emergency Contact: ${booking.emergencyName} — ${booking.emergencyPhone}`;
-
-    const wa1Key = process.env.CALLMEBOT_API_KEY_1;
-    const wa2Key = process.env.CALLMEBOT_API_KEY_2;
-    if (wa1Key) sendWhatsAppNotification("233244893605", wa1Key, waMessage);
-    if (wa2Key) sendWhatsAppNotification("12404756569",  wa2Key, waMessage);
-
-    // Await emails so serverless function doesn't terminate before they fire
-    await Promise.allSettled([
-      sendAdminEmail({ ...notifParams, to_email: "pdanmes@gmail.com" }),
-      sendGuestEmail({ ...notifParams, to_email: booking.email }),
-    ]);
-
-    return NextResponse.json(booking, { status: 201 });
+    const notification = await notifyManagerOfBooking(booking);
+    return NextResponse.json({ ...booking, notification }, { status: 201 });
   } catch (error) {
     console.error("POST /api/bookings error:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: "We could not submit your booking. Please try again." },
+      { status: 500 },
+    );
   }
 }

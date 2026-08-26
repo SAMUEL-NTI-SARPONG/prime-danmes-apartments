@@ -3,8 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Menu, X, Phone } from "lucide-react";
+import { Menu, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSiteSettings } from "@/components/site-settings-provider";
+import { phoneHref } from "@/lib/site-settings";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +23,7 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const settings = useSiteSettings();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -45,6 +48,7 @@ export default function Navbar() {
               src="/danmes-logo.jpeg"
               alt="Prime Danmes logo"
               fill
+              sizes="40px"
               className="object-cover"
             />
           </div>
@@ -72,11 +76,11 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <a
-            href="tel:+233598164027"
+            href={phoneHref(settings.phone1)}
             className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
           >
             <Phone className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">+233 59 816 4027</span>
+            <span className="hidden lg:inline">{settings.phone1}</span>
           </a>
           <Link href="/apartments">
             <Button
@@ -105,6 +109,7 @@ export default function Navbar() {
                     src="/danmes-logo.jpeg"
                     alt="Prime Danmes logo"
                     fill
+                    sizes="40px"
                     className="object-cover"
                   />
                 </div>
@@ -129,11 +134,11 @@ export default function Navbar() {
               </div>
               <div className="space-y-3 pt-2">
                 <a
-                  href="tel:+233598164027"
+                  href={phoneHref(settings.phone1)}
                   className="flex items-center gap-2 px-4 text-sm text-muted-foreground"
                 >
                   <Phone className="h-4 w-4" />
-                  +233 59 816 4027
+                  {settings.phone1}
                 </a>
                 <Link href="/apartments" onClick={() => setOpen(false)}>
                   <Button className="w-full rounded-full shadow-md shadow-primary/20">

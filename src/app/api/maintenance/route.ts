@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, ensureTables, cuid } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin-auth";
+import {
+  createMaintenanceRecord,
+  listMaintenance,
+} from "@/lib/repository";
 
-// GET all maintenance requests
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
-    const rows =
-      await sql`SELECT * FROM "Maintenance" ORDER BY "createdAt" DESC`;
-    return NextResponse.json(rows);
+    return NextResponse.json(await listMaintenance());
   } catch (error) {
     console.error("GET /api/maintenance error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 
-// POST new maintenance request
 export async function POST(req: NextRequest) {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    await ensureTables();
     const body = await req.json();
-
-    const required = ["apartment", "apartmentId", "issue", "priority"];
-    for (const field of required) {
+    for (const field of ["apartment", "apartmentId", "issue", "priority"]) {
       if (!body[field] || String(body[field]).trim() === "") {
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
@@ -29,31 +31,19 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-
-    const validPriorities = ["low", "medium", "high", "urgent"];
+    const validPriorities = ["low", "medium", "high", "urgent"] as const;
     if (!validPriorities.includes(body.priority)) {
       return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
     }
-
-    const id = cuid();
-    const reportedDate =
-      body.reportedDate || new Date().toISOString().slice(0, 10);
-
-    const [row] = await sql`
-      INSERT INTO "Maintenance" (
-        id, apartment, "apartmentId", issue, priority, status, "reportedDate"
-      ) VALUES (
-        ${id},
-        ${String(body.apartment).trim()},
-        ${String(body.apartmentId).trim()},
-        ${String(body.issue).trim()},
-        ${body.priority},
-        'open',
-        ${reportedDate}
-      ) RETURNING *
-    `;
-
-    return NextResponse.json(row, { status: 201 });
+    const record = await createMaintenanceRecord({
+      apartment: String(body.apartment).trim(),
+      apartmentId: String(body.apartmentId).trim(),
+      issue: String(body.issue).trim(),
+      priority: body.priority,
+      reportedDate:
+        body.reportedDate || new Date().toISOString().slice(0, 10),
+    });
+    return NextResponse.json(record, { status: 201 });
   } catch (error) {
     console.error("POST /api/maintenance error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

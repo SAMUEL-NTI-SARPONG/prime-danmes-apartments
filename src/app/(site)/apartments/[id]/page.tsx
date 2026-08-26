@@ -2,6 +2,7 @@
 
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import {
   Bed,
@@ -15,6 +16,7 @@ import {
   User,
   Briefcase,
   AlertCircle,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +33,8 @@ import {
 import { useApartmentStore } from "@/lib/store";
 import type { Booking } from "@/lib/store";
 import { motion } from "framer-motion";
+import { useSiteSettings } from "@/components/site-settings-provider";
+import { phoneHref, whatsappHref } from "@/lib/site-settings";
 
 const typeLabels: Record<string, string> = {
   "1-bedroom": "1 Bedroom",
@@ -39,6 +43,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function ApartmentDetailPage() {
+  const settings = useSiteSettings();
   const params = useParams();
   const apartments = useApartmentStore((s) => s.apartments);
   const apartmentsLoaded = useApartmentStore((s) => s.apartmentsLoaded);
@@ -48,6 +53,8 @@ export default function ApartmentDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [submittedBooking, setSubmittedBooking] = useState<Booking | null>(null);
 
   // Show loading spinner while apartments are being fetched from API
   if (!apartmentsLoaded) {
@@ -62,9 +69,18 @@ export default function ApartmentDetailPage() {
     notFound();
   }
 
+  const minimumCheckInDate = new Date().toISOString().slice(0, 10);
+  const whatsappFallbackUrl = submittedBooking
+    ? whatsappHref(
+        settings.whatsapp1,
+        `Hello Prime Danmes, I just submitted booking ${submittedBooking.id} for ${submittedBooking.apartment}, checking in on ${submittedBooking.moveInDate}.`,
+      )
+    : whatsappHref(settings.whatsapp1);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setFormError("");
     const form = e.currentTarget;
     const fd = new FormData(form);
     const bookingData: Omit<Booking, "id" | "createdAt"> = {
@@ -85,10 +101,19 @@ export default function ApartmentDetailPage() {
       status: "pending",
       amount: apartment!.price,
     };
-    const result = await addBooking(bookingData);
-    setSubmitting(false);
-    if (result) {
+    try {
+      const result = await addBooking(bookingData);
+      setSubmittedBooking(result);
       setFormSubmitted(true);
+      form.reset();
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit your booking. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -117,10 +142,13 @@ export default function ApartmentDetailPage() {
           <div className="overflow-hidden rounded-2xl bg-muted">
             {/* Main image */}
             <div className="relative aspect-video sm:aspect-21/9 overflow-hidden">
-              <img
+              <Image
                 src={apartment.images[selectedImage]}
                 alt={apartment.name}
-                className="h-full w-full object-cover transition-all duration-500"
+                fill
+                priority
+                sizes="(min-width: 1280px) 1200px, 100vw"
+                className="object-cover transition-all duration-500"
               />
               {apartment.featured && (
                 <Badge className="absolute left-4 top-4 bg-white/95 text-foreground backdrop-blur-sm shadow-sm">
@@ -182,10 +210,12 @@ export default function ApartmentDetailPage() {
                       : "border-transparent opacity-50 hover:opacity-90 hover:border-border"
                   }`}
                 >
-                  <img
+                  <Image
                     src={img}
                     alt={`${apartment.name} ${i + 1}`}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="112px"
+                    className="object-cover"
                   />
                 </button>
               ))}
@@ -210,7 +240,7 @@ export default function ApartmentDetailPage() {
                     {apartment.name}
                   </h1>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Anaji, Takoradi — Ghana
+                    {settings.addressLine2}
                   </p>
                 </div>
                 {apartment.showPrice && apartment.price > 0 && (
@@ -305,6 +335,27 @@ export default function ApartmentDetailPage() {
                       We&apos;ll review your application and contact you
                       shortly.
                     </p>
+                    {submittedBooking && (
+                      <p className="mt-3 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-800">
+                        Reference: {submittedBooking.id}
+                      </p>
+                    )}
+                    {submittedBooking?.notification?.delivered ? (
+                      <p className="mt-3 text-xs text-emerald-700">
+                        The manager was notified via{" "}
+                        {submittedBooking.notification.channels.join(" and ")}.
+                      </p>
+                    ) : (
+                      <a
+                        href={whatsappFallbackUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Send reference on WhatsApp
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
@@ -402,6 +453,7 @@ export default function ApartmentDetailPage() {
                           id="moveIn"
                           name="moveIn"
                           type="date"
+                          min={minimumCheckInDate}
                           className="mt-1"
                           required
                         />
@@ -512,6 +564,13 @@ export default function ApartmentDetailPage() {
                       />
                     </div>
 
+                    {formError && (
+                      <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {formError}
+                      </div>
+                    )}
+
                     <Button
                       type="submit"
                       className="w-full"
@@ -529,18 +588,18 @@ export default function ApartmentDetailPage() {
                     Or contact us directly
                   </p>
                   <a
-                    href="tel:+233302123456"
+                    href={phoneHref(settings.phone1)}
                     className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     <Phone className="h-4 w-4" />
-                    +233 302 123 456
+                    {settings.phone1}
                   </a>
                   <a
-                    href="mailto:info@primedanmes.com"
+                    href={`mailto:${settings.email}`}
                     className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     <Mail className="h-4 w-4" />
-                    info@primedanmes.com
+                    {settings.email}
                   </a>
                 </div>
               </div>

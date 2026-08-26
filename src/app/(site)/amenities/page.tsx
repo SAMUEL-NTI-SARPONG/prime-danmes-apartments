@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   Waves,
   Dumbbell,
@@ -85,10 +86,13 @@ export default function AmenitiesPage() {
 
       {/* Hero Image */}
       <section className="relative h-64 overflow-hidden sm:h-80 lg:h-96">
-        <img
-          src="https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1600&q=80"
+        <Image
+          src="/images/danmes/living-room-evening.avif"
           alt="Luxury amenities"
-          className="h-full w-full object-cover"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
         />
         <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-transparent" />
       </section>
@@ -157,12 +161,14 @@ export default function AmenitiesPage() {
             <motion.div
               variants={fadeUp}
               custom={1}
-              className="overflow-hidden rounded-2xl shadow-xl"
+              className="relative h-72 overflow-hidden rounded-2xl shadow-xl lg:h-96"
             >
-              <img
-                src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80"
+              <Image
+                src="/images/danmes/dining-kitchen-wide.avif"
                 alt="Modern apartment interior"
-                className="h-72 w-full object-cover lg:h-96 transition-transform duration-700 hover:scale-105"
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="object-cover transition-transform duration-700 hover:scale-105"
               />
             </motion.div>
           </motion.div>

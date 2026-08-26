@@ -19,24 +19,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import type { Apartment } from "@/lib/data";
 import { useApartmentStore } from "@/lib/store";
 import type { Booking } from "@/lib/store";
+import { useSiteSettings } from "@/components/site-settings-provider";
 
 interface BookingFormProps {
   apartment: Apartment;
 }
 
 export default function BookingForm({ apartment }: BookingFormProps) {
+  const settings = useSiteSettings();
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
+  const [error, setError] = useState("");
   const addBooking = useApartmentStore((s) => s.addBooking);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setError("");
     const form = e.currentTarget;
     const fd = new FormData(form);
     const bookingData: Omit<Booking, "id" | "createdAt"> = {
@@ -57,11 +61,19 @@ export default function BookingForm({ apartment }: BookingFormProps) {
       status: "pending",
       amount: apartment.price,
     };
-    const result = await addBooking(bookingData);
-    setSubmitting(false);
-    if (result) {
+    try {
+      const result = await addBooking(bookingData);
       setBookingId(result.id);
       setSuccess(true);
+      form.reset();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to submit your booking. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -145,7 +157,13 @@ export default function BookingForm({ apartment }: BookingFormProps) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="moveIn">Check-in Date *</Label>
-            <Input id="moveIn" name="moveIn" type="date" required />
+            <Input
+              id="moveIn"
+              name="moveIn"
+              type="date"
+              min={new Date().toISOString().slice(0, 10)}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="leaseDuration">Stay Duration *</Label>
@@ -225,6 +243,13 @@ export default function BookingForm({ apartment }: BookingFormProps) {
           />
         </div>
 
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
         <Button
           type="submit"
           size="lg"
@@ -269,7 +294,7 @@ export default function BookingForm({ apartment }: BookingFormProps) {
                 </span>
               )}
               <span className="block text-xs">
-                You can also reach us on WhatsApp at +233 24 489 3605.
+                You can also reach us on WhatsApp at {settings.whatsapp1}.
               </span>
             </DialogDescription>
           </DialogHeader>

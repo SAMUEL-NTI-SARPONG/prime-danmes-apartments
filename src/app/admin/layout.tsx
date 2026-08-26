@@ -12,11 +12,12 @@ import {
   ShieldAlert,
   Eye,
   EyeOff,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 
 const sidebarLinks = [
@@ -33,37 +34,37 @@ export default function AdminLayout({
   const [passkey, setPasskey] = useState("");
   const [showPasskey, setShowPasskey] = useState(false);
   const [error, setError] = useState("");
+  const [authenticating, setAuthenticating] = useState(false);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const loginAttempts = useAuthStore((s) => s.loginAttempts);
-  const lastAttempt = useAuthStore((s) => s.lastAttempt);
+  const isChecking = useAuthStore((s) => s.isChecking);
+  const checkSession = useAuthStore((s) => s.checkSession);
   const login = useAuthStore((s) => s.login);
   const logout = useAuthStore((s) => s.logout);
 
-  const isLockedOut = loginAttempts >= 5 && Date.now() - lastAttempt < 60_000;
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (isLockedOut) {
-      setError("Too many failed attempts. Please wait 60 seconds.");
-      return;
-    }
-
-    const success = login(passkey);
-    if (!success) {
+    setAuthenticating(true);
+    const result = await login(passkey);
+    setAuthenticating(false);
+    if (!result.success) {
       setPasskey("");
-      const remaining = 5 - (loginAttempts + 1);
-      if (remaining <= 0) {
-        setError("Locked out. Wait 60 seconds before trying again.");
-      } else {
-        setError(
-          `Invalid passkey. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
-        );
-      }
+      setError(result.error || "Unable to sign in.");
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // --- LOGIN GATE ---
   if (!isAuthenticated) {
@@ -98,7 +99,7 @@ export default function AdminLayout({
                     className="pr-10"
                     autoComplete="off"
                     autoFocus
-                    disabled={isLockedOut}
+                    disabled={authenticating}
                     required
                   />
                   <button
@@ -126,9 +127,16 @@ export default function AdminLayout({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLockedOut || !passkey}
+                disabled={authenticating || !passkey}
               >
-                Access Dashboard
+                {authenticating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  "Access Dashboard"
+                )}
               </Button>
             </form>
 
@@ -169,6 +177,7 @@ export default function AdminLayout({
                 src="/danmes-logo.jpeg"
                 alt="Prime Danmes logo"
                 fill
+                sizes="36px"
                 className="object-cover"
               />
             </div>
@@ -214,7 +223,7 @@ export default function AdminLayout({
 
         <div className="border-t px-3 py-4 space-y-1">
           <button
-            onClick={() => logout()}
+            onClick={() => void logout()}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
           >
             <Lock className="h-4.5 w-4.5" />

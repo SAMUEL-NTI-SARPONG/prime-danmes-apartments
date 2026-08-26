@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { type Apartment } from "./data";
+import { apartments as defaultApartments, type Apartment } from "./data";
 
 export type BookingStatus =
   | "pending"
@@ -31,6 +31,11 @@ export interface Booking {
   status: BookingStatus;
   amount: number;
   createdAt: string;
+  notification?: {
+    configured: boolean;
+    delivered: boolean;
+    channels: Array<"email" | "whatsapp">;
+  };
 }
 
 export interface MaintenanceRequest {
@@ -64,7 +69,7 @@ interface ApartmentStore {
   fetchBookings: () => Promise<void>;
   addBooking: (
     booking: Omit<Booking, "id" | "createdAt">,
-  ) => Promise<Booking | null>;
+  ) => Promise<Booking>;
   updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
   removeBooking: (id: string) => Promise<void>;
 
@@ -99,8 +104,13 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
       const data: Apartment[] = await res.json();
       set({ apartments: data, apartmentsLoaded: true, loadingApartments: false });
     } catch {
-      // apartmentsLoaded stays false so StoreInitializer can retry
-      set({ loadingApartments: false });
+      // Keep the public catalogue usable even if a production database has
+      // not been connected yet. Mutations still require the server API.
+      set({
+        apartments: defaultApartments,
+        apartmentsLoaded: true,
+        loadingApartments: false,
+      });
     }
   },
 
@@ -126,11 +136,13 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
       apartments: state.apartments.filter((a) => a.id !== id),
     }));
     try {
-      await fetch(`/api/apartments/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/apartments/${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       set({ apartments: prev });
+      throw new Error("Unable to delete apartment");
     }
   },
 
@@ -142,13 +154,15 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
       ),
     }));
     try {
-      await fetch(`/api/apartments/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/apartments/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       set({ apartments: prev });
+      throw new Error("Unable to update apartment");
     }
   },
 
@@ -172,37 +186,38 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
   },
 
   addBooking: async (booking) => {
-    try {
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(booking),
-      });
-      if (!res.ok) return null;
-      const created = await res.json();
-      const mapped: Booking = {
-        ...created,
-        createdAt: new Date(created.createdAt).toISOString().slice(0, 10),
-      };
-      set((state) => ({ bookings: [mapped, ...state.bookings] }));
-      return mapped;
-    } catch {
-      return null;
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(booking),
+    });
+    const created = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(created.error || "Unable to submit booking");
     }
+    const mapped: Booking = {
+      ...created,
+      createdAt: new Date(created.createdAt).toISOString().slice(0, 10),
+    };
+    set((state) => ({ bookings: [mapped, ...state.bookings] }));
+    return mapped;
   },
 
   updateBookingStatus: async (id, status) => {
+    const prev = get().bookings;
     set((state) => ({
       bookings: state.bookings.map((b) => (b.id === id ? { ...b, status } : b)),
     }));
     try {
-      await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // rollback silently
+      set({ bookings: prev });
+      throw new Error("Unable to update booking status");
     }
   },
 
@@ -212,11 +227,13 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
       bookings: state.bookings.filter((b) => b.id !== id),
     }));
     try {
-      await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       set({ bookings: prev });
+      throw new Error("Unable to delete booking");
     }
   },
 
@@ -249,19 +266,22 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
   },
 
   updateMaintenanceStatus: async (id, status) => {
+    const prev = get().maintenance;
     set((state) => ({
       maintenance: state.maintenance.map((m) =>
         m.id === id ? { ...m, status } : m,
       ),
     }));
     try {
-      await fetch(`/api/maintenance/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/maintenance/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // rollback silently
+      set({ maintenance: prev });
+      throw new Error("Unable to update maintenance status");
     }
   },
 
@@ -271,11 +291,13 @@ export const useApartmentStore = create<ApartmentStore>((set, get) => ({
       maintenance: state.maintenance.filter((m) => m.id !== id),
     }));
     try {
-      await fetch(`/api/maintenance/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/maintenance/${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       set({ maintenance: prev });
+      throw new Error("Unable to delete maintenance request");
     }
   },
 }));

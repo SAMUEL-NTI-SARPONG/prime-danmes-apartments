@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Award, Users, Heart, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -58,10 +59,13 @@ export default function AboutPage() {
 
       {/* Hero Image */}
       <section className="relative h-64 overflow-hidden sm:h-80 lg:h-112">
-        <img
-          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&q=80"
+        <Image
+          src="/images/danmes/exterior-side.avif"
           alt="Prime Danmes Apartments"
-          className="h-full w-full object-cover"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
         />
         <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-transparent" />
       </section>
@@ -176,12 +180,14 @@ export default function AboutPage() {
             <motion.div
               variants={fadeUp}
               custom={0}
-              className="overflow-hidden rounded-2xl shadow-xl"
+              className="relative h-72 overflow-hidden rounded-2xl shadow-xl lg:h-96"
             >
-              <img
-                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                alt="Luxury apartment interior"
-                className="h-72 w-full object-cover lg:h-96 transition-transform duration-700 hover:scale-105"
+              <Image
+                src="/images/danmes/exterior-garden.avif"
+                alt="Prime Danmes apartment grounds"
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="object-cover transition-transform duration-700 hover:scale-105"
               />
             </motion.div>
             <motion.div variants={fadeUp} custom={1}>

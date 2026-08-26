@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import crypto from "crypto";
+import { apartments as seedApartments } from "./data";
 
 // Neon is stateless HTTP — create a fresh function per invocation context
 export function getSQL(): NeonQueryFunction<false, false> {
@@ -105,6 +106,28 @@ export async function ensureTables() {
       "createdAt"  TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
+
+    await sql`
+    CREATE TABLE IF NOT EXISTS "SiteSettings" (
+      id          TEXT PRIMARY KEY,
+      data        JSONB NOT NULL DEFAULT '{}',
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+
+    // Migrate the original Unsplash placeholders to the downloaded property
+    // photography without overwriting images later uploaded by an admin.
+    for (const apartment of seedApartments) {
+      await sql`
+        UPDATE "Apartment"
+        SET image = ${apartment.image}, images = ${JSON.stringify(apartment.images)}
+        WHERE id = ${apartment.id}
+          AND (
+            image LIKE 'https://images.unsplash.com/%'
+            OR images::text LIKE '%images.unsplash.com%'
+          )
+      `;
+    }
 
     _initialized = true;
   } catch (err) {

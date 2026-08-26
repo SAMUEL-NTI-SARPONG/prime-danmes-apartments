@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Building2,
@@ -16,6 +17,8 @@ import ApartmentCard from "@/components/apartment-card";
 import ApartmentCardSkeleton from "@/components/apartment-card-skeleton";
 import { useApartmentStore } from "@/lib/store";
 import { motion } from "framer-motion";
+import { useSiteSettings } from "@/components/site-settings-provider";
+import { whatsappHref } from "@/lib/site-settings";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -44,6 +47,7 @@ const scaleIn = {
 };
 
 export default function Home() {
+  const settings = useSiteSettings();
   const apartments = useApartmentStore((s) => s.apartments);
   const apartmentsLoaded = useApartmentStore((s) => s.apartmentsLoaded);
   const featured = apartments.filter((a) => a.featured).slice(0, 3);
@@ -53,10 +57,13 @@ export default function Home() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img
-            src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&q=80"
+          <Image
+            src="/images/danmes/exterior-front-day.avif"
             alt="Luxury apartment building"
-            className="h-full w-full object-cover scale-105"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover scale-105"
           />
           <div className="absolute inset-0 bg-linear-to-b from-black/60 via-black/40 to-black/70" />
         </div>
@@ -73,7 +80,7 @@ export default function Home() {
               className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-medium text-white backdrop-blur-md"
             >
               <MapPin className="h-4 w-4" />
-              Anaji, Takoradi &mdash; Ghana
+              {settings.addressLine2}
             </motion.div>
             <motion.h1
               variants={fadeUp}
@@ -119,7 +126,7 @@ export default function Home() {
                 </Button>
               </Link>
               <a
-                href="https://wa.me/233244893605"
+                href={whatsappHref(settings.whatsapp1)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -151,7 +158,7 @@ export default function Home() {
               { value: "Luxury", label: "Apartments", icon: Building2 },
               { value: "24/7", label: "Security", icon: ShieldCheck },
               { value: "5★", label: "Guest Rating", icon: Star },
-              { value: "GPS", label: "WK-391-2390", icon: MapPin },
+              { value: "GPS", label: settings.gpsAddress, icon: MapPin },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -339,7 +346,7 @@ export default function Home() {
                   </Button>
                 </Link>
                 <a
-                  href="https://wa.me/233244893605"
+                  href={whatsappHref(settings.whatsapp1)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -388,7 +395,7 @@ export default function Home() {
                   <div>
                     <p className="text-sm font-semibold">Address</p>
                     <p className="text-sm text-muted-foreground">
-                      House Number T, 26B SSNIT ST, Anaji Takoradi - Ghana
+                      {settings.addressLine1}, {settings.addressLine2}
                     </p>
                   </div>
                 </div>
@@ -398,7 +405,9 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold">GPS Address</p>
-                    <p className="text-sm text-muted-foreground">WK-391-2390</p>
+                    <p className="text-sm text-muted-foreground">
+                      {settings.gpsAddress}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -408,7 +417,9 @@ export default function Home() {
                   <div>
                     <p className="text-sm font-semibold">Contact</p>
                     <p className="text-sm text-muted-foreground">
-                      +233 59 816 4027 / +233 20 236 1616
+                      {[settings.phone1, settings.phone2]
+                        .filter(Boolean)
+                        .join(" / ")}
                     </p>
                   </div>
                 </div>
@@ -417,12 +428,14 @@ export default function Home() {
             <motion.div
               variants={fadeUp}
               custom={1}
-              className="overflow-hidden rounded-2xl shadow-xl"
+              className="relative h-80 overflow-hidden rounded-2xl shadow-xl lg:h-105"
             >
-              <img
-                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                alt="Prime Danmes Apartments exterior"
-                className="h-80 w-full object-cover lg:h-105 transition-transform duration-700 hover:scale-105"
+              <Image
+                src="/images/danmes/living-room-bright.avif"
+                alt="Prime Danmes apartment living room"
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="object-cover transition-transform duration-700 hover:scale-105"
               />
             </motion.div>
           </motion.div>

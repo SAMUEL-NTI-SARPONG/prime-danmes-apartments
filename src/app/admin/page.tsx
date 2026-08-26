@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   Building2,
@@ -15,19 +15,26 @@ import {
   CheckCircle2,
   XCircle,
   Mail,
-  Phone,
   X,
-  ImagePlus,
   Upload,
   ChevronRight,
   User,
   Briefcase,
   FileText,
   CreditCard,
+  Settings2,
+  MapPin,
+  Phone,
+  MessageCircle,
+  Navigation,
 } from "lucide-react";
 import { useApartmentStore } from "@/lib/store";
 import type { Booking, BookingStatus, MaintenanceRequest } from "@/lib/store";
 import type { Apartment, PricePeriod } from "@/lib/data";
+import {
+  defaultSiteSettings,
+  type SiteSettings,
+} from "@/lib/site-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +59,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import emailjs from "@emailjs/browser";
 
 // ─── Toast Notification ──────────────────────────────────
 function Toast({
@@ -92,14 +98,14 @@ function useToast() {
   } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const showToast = (
+  const showToast = useCallback((
     message: string,
     type: "success" | "error" = "success",
   ) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setToast({ message, type });
     timerRef.current = setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   const ToastUI = toast ? (
     <Toast
@@ -219,10 +225,6 @@ export default function AdminPage() {
   const occupiedCount = apartments.filter((a) => !a.available).length;
   const featuredCount = apartments.filter((a) => a.featured).length;
   const pendingBookings = bookings.filter((b) => b.status === "pending").length;
-  const totalRevenue = bookings
-    .filter((b) => b.status !== "cancelled")
-    .reduce((sum, b) => sum + b.amount, 0);
-
   return (
     <div className="space-y-6">
       {ToastUI}
@@ -261,6 +263,7 @@ export default function AdminPage() {
           <TabsTrigger value="listings">Listings</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="settings">Site Details</TabsTrigger>
         </TabsList>
 
         <TabsContent value="listings" className="mt-4">
@@ -276,7 +279,6 @@ export default function AdminPage() {
         <TabsContent value="bookings" className="mt-4">
           <BookingsTab
             bookings={bookings}
-            apartments={apartments}
             updateBookingStatus={updateBookingStatus}
             removeBooking={removeBooking}
             showToast={showToast}
@@ -293,7 +295,255 @@ export default function AdminPage() {
             showToast={showToast}
           />
         </TabsContent>
+
+        <TabsContent value="settings" className="mt-4">
+          <SiteSettingsTab showToast={showToast} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SITE SETTINGS TAB
+// ═══════════════════════════════════════════════════════════════
+function SiteSettingsTab({
+  showToast,
+}: {
+  showToast: (msg: string, type?: "success" | "error") => void;
+}) {
+  const [form, setForm] = useState<SiteSettings>(defaultSiteSettings);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/site-settings", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<SiteSettings>;
+      })
+      .then(setForm)
+      .catch(() => showToast("Unable to load site details", "error"))
+      .finally(() => setLoading(false));
+  }, [showToast]);
+
+  const setField = (key: keyof SiteSettings, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const response = await fetch("/api/site-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to save site details");
+      }
+      setForm(result as SiteSettings);
+      showToast("Site contact details updated");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Unable to save site details",
+        "error",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
+          Loading site details…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <form onSubmit={saveSettings} className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Settings2 className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">Public site details</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            These values update the header, footer, contact page, homepage, and booking pages.
+          </p>
+        </div>
+        <Button type="submit" size="sm" disabled={saving}>
+          <Save className="mr-1.5 h-4 w-4" />
+          {saving ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardContent className="space-y-5 p-5">
+            <div className="flex items-center gap-2 border-b pb-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Location</h3>
+                <p className="text-xs text-muted-foreground">Street, city, GPS and map</p>
+              </div>
+            </div>
+
+            <SettingsField
+              label="Street address"
+              value={form.addressLine1}
+              onChange={(value) => setField("addressLine1", value)}
+              required
+            />
+            <SettingsField
+              label="City and country"
+              value={form.addressLine2}
+              onChange={(value) => setField("addressLine2", value)}
+              required
+            />
+            <SettingsField
+              label="GhanaPost GPS address"
+              value={form.gpsAddress}
+              onChange={(value) => setField("gpsAddress", value)}
+              required
+              icon={Navigation}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="settings-map">Google Maps embed URL</Label>
+              <Textarea
+                id="settings-map"
+                rows={4}
+                value={form.mapEmbedUrl}
+                onChange={(event) => setField("mapEmbedUrl", event.target.value)}
+                placeholder="https://www.google.com/maps/embed?..."
+              />
+              <p className="text-xs text-muted-foreground">
+                In Google Maps, choose Share → Embed a map and copy only the URL inside the iframe source field.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-5 p-5">
+            <div className="flex items-center gap-2 border-b pb-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Phone className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Contact channels</h3>
+                <p className="text-xs text-muted-foreground">Telephone, WhatsApp and email</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SettingsField
+                label="Primary phone"
+                type="tel"
+                value={form.phone1}
+                onChange={(value) => setField("phone1", value)}
+                required
+              />
+              <SettingsField
+                label="Secondary phone"
+                type="tel"
+                value={form.phone2}
+                onChange={(value) => setField("phone2", value)}
+              />
+              <SettingsField
+                label="Primary WhatsApp"
+                type="tel"
+                value={form.whatsapp1}
+                onChange={(value) => setField("whatsapp1", value)}
+                required
+                icon={MessageCircle}
+              />
+              <SettingsField
+                label="Secondary WhatsApp"
+                type="tel"
+                value={form.whatsapp2}
+                onChange={(value) => setField("whatsapp2", value)}
+                icon={MessageCircle}
+              />
+            </div>
+            <SettingsField
+              label="Public email"
+              type="email"
+              value={form.email}
+              onChange={(value) => setField("email", value)}
+              required
+              icon={Mail}
+            />
+
+            <div className="border-t pt-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-primary">
+                Office hours
+              </p>
+              <div className="space-y-4">
+                <SettingsField
+                  label="Weekdays"
+                  value={form.officeHoursWeekdays}
+                  onChange={(value) => setField("officeHoursWeekdays", value)}
+                />
+                <SettingsField
+                  label="Saturday"
+                  value={form.officeHoursSaturday}
+                  onChange={(value) => setField("officeHoursSaturday", value)}
+                />
+                <SettingsField
+                  label="Sunday"
+                  value={form.officeHoursSunday}
+                  onChange={(value) => setField("officeHoursSunday", value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </form>
+  );
+}
+
+function SettingsField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+  icon?: React.ElementType;
+}) {
+  const id = `settings-${label.toLowerCase().replace(/\W+/g, "-")}`;
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}{required ? " *" : ""}</Label>
+      <div className="relative">
+        {Icon && (
+          <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
+        <Input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required={required}
+          className={Icon ? "pl-9" : undefined}
+        />
+      </div>
     </div>
   );
 }
@@ -342,9 +592,9 @@ function ListingsTab({
   showToast,
 }: {
   apartments: Apartment[];
-  addApartment: (a: Apartment) => void;
-  removeApartment: (id: string) => void;
-  updateApartment: (id: string, u: Partial<Apartment>) => void;
+  addApartment: (a: Apartment) => Promise<Apartment | null>;
+  removeApartment: (id: string) => Promise<void>;
+  updateApartment: (id: string, u: Partial<Apartment>) => Promise<void>;
   showToast: (msg: string, type?: "success" | "error") => void;
 }) {
   const [search, setSearch] = useState("");
@@ -380,8 +630,9 @@ function ListingsTab({
           />
           <ApartmentFormDialog
             mode="add"
-            onSave={(apt) => {
-              addApartment(apt);
+            onSave={async (apt) => {
+              const created = await addApartment(apt);
+              if (!created) throw new Error("Unable to add apartment");
               setAddOpen(false);
               showToast("Apartment added successfully");
             }}
@@ -399,23 +650,35 @@ function ListingsTab({
             apartment={apt}
             onEdit={() => setEditApt({ ...apt })}
             onDelete={() => setDeleteId(apt.id)}
-            onToggleAvailability={() => {
-              updateApartment(apt.id, { available: !apt.available });
-              showToast(
-                `${apt.name} marked as ${!apt.available ? "available" : "unavailable"}`,
-              );
+            onToggleAvailability={async () => {
+              try {
+                await updateApartment(apt.id, { available: !apt.available });
+                showToast(
+                  `${apt.name} marked as ${!apt.available ? "available" : "unavailable"}`,
+                );
+              } catch {
+                showToast("Failed to update availability", "error");
+              }
             }}
-            onToggleFeatured={() => {
-              updateApartment(apt.id, { featured: !apt.featured });
-              showToast(
-                `${apt.name} ${!apt.featured ? "added to" : "removed from"} featured`,
-              );
+            onToggleFeatured={async () => {
+              try {
+                await updateApartment(apt.id, { featured: !apt.featured });
+                showToast(
+                  `${apt.name} ${!apt.featured ? "added to" : "removed from"} featured`,
+                );
+              } catch {
+                showToast("Failed to update featured status", "error");
+              }
             }}
-            onToggleShowPrice={() => {
-              updateApartment(apt.id, { showPrice: !apt.showPrice });
-              showToast(
-                `${apt.name} price ${!apt.showPrice ? "visible" : "hidden"} on public site`,
-              );
+            onToggleShowPrice={async () => {
+              try {
+                await updateApartment(apt.id, { showPrice: !apt.showPrice });
+                showToast(
+                  `${apt.name} price ${!apt.showPrice ? "visible" : "hidden"} on public site`,
+                );
+              } catch {
+                showToast("Failed to update price visibility", "error");
+              }
             }}
           />
         ))}
@@ -432,8 +695,8 @@ function ListingsTab({
           <ApartmentFormDialog
             mode="edit"
             initial={editApt}
-            onSave={(updated) => {
-              updateApartment(updated.id, updated);
+            onSave={async (updated) => {
+              await updateApartment(updated.id, updated);
               setEditApt(null);
               showToast(`${updated.name} updated successfully`);
             }}
@@ -460,11 +723,15 @@ function ListingsTab({
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => {
+              onClick={async () => {
                 if (deleteId) {
-                  removeApartment(deleteId);
-                  showToast("Apartment deleted");
-                  setDeleteId(null);
+                  try {
+                    await removeApartment(deleteId);
+                    showToast("Apartment deleted");
+                    setDeleteId(null);
+                  } catch {
+                    showToast("Failed to delete apartment", "error");
+                  }
                 }
               }}
             >
@@ -603,7 +870,7 @@ function ApartmentFormDialog({
 }: {
   mode: "add" | "edit";
   initial?: Apartment;
-  onSave: (apt: Apartment) => void;
+  onSave: (apt: Apartment) => Promise<void>;
   onCancel: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
 }) {
@@ -612,6 +879,7 @@ function ApartmentFormDialog({
   );
   const [featureInput, setFeatureInput] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const set = (updates: Partial<Apartment>) =>
@@ -672,10 +940,20 @@ function ApartmentFormDialog({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    onSave(form);
+    setSaving(true);
+    try {
+      await onSave(form);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Unable to save apartment",
+        "error",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -954,9 +1232,13 @@ function ApartmentFormDialog({
           <Button type="button" variant="outline" size="sm" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" size="sm">
+          <Button type="submit" size="sm" disabled={saving || uploading}>
             <Save className="mr-1.5 h-3.5 w-3.5" />
-            {mode === "add" ? "Add Apartment" : "Save Changes"}
+            {saving
+              ? "Saving..."
+              : mode === "add"
+                ? "Add Apartment"
+                : "Save Changes"}
           </Button>
         </DialogFooter>
       </form>
@@ -969,13 +1251,11 @@ function ApartmentFormDialog({
 // ═══════════════════════════════════════════════════════════════
 function BookingsTab({
   bookings,
-  apartments,
   updateBookingStatus,
   removeBooking,
   showToast,
 }: {
   bookings: Booking[];
-  apartments: Apartment[];
   updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
   removeBooking: (id: string) => Promise<void>;
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -1000,41 +1280,34 @@ function BookingsTab({
     booking: Booking,
     newStatus: BookingStatus,
   ) => {
-    await updateBookingStatus(booking.id, newStatus);
-    showToast(`Booking ${booking.id} → ${newStatus}`);
-    if (newStatus === "confirmed") {
-      setEmailDialog(booking);
+    try {
+      await updateBookingStatus(booking.id, newStatus);
+      setSelectedBooking({ ...booking, status: newStatus });
+      showToast(`Booking ${booking.id} → ${newStatus}`);
+      if (newStatus === "confirmed") {
+        setEmailDialog({ ...booking, status: newStatus });
+      }
+    } catch {
+      showToast("Failed to update booking status", "error");
     }
   };
 
-  const sendConfirmationEmail = async (booking: Booking) => {
+  const sendConfirmationEmail = (booking: Booking) => {
     setSending(true);
-    try {
-      await emailjs.send(
-        "service_danmes",
-        "template_booking",
-        {
-          to_name: `${booking.firstName} ${booking.lastName}`,
-          to_email: booking.email,
-          booking_id: booking.id,
-          apartment: booking.apartment,
-          move_in: booking.moveInDate,
-          lease: booking.leaseDuration,
-          amount: `GHS ${booking.amount.toLocaleString()}`,
-          from_name: "Prime Danmes Apartments & Short Stays",
-        },
-        "YOUR_PUBLIC_KEY",
-      );
-      showToast(`Confirmation email sent to ${booking.email}`);
-    } catch {
-      showToast(
-        "Email sending failed. Please check your EmailJS configuration.",
-        "error",
-      );
-    } finally {
-      setSending(false);
-      setEmailDialog(null);
-    }
+    const subject = `Prime Danmes booking confirmed — ${booking.id}`;
+    const body = [
+      `Hello ${booking.firstName},`,
+      "",
+      `Your booking request ${booking.id} for ${booking.apartment} has been confirmed.`,
+      `Check-in: ${booking.moveInDate}`,
+      `Duration: ${booking.leaseDuration}`,
+      "",
+      "Prime Danmes Apartments & Short Stays",
+    ].join("\n");
+    window.location.href = `mailto:${booking.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    showToast(`Email draft opened for ${booking.email}`);
+    setSending(false);
+    setEmailDialog(null);
   };
 
   return (
@@ -1133,11 +1406,10 @@ function BookingsTab({
                 <Select
                   value={selectedBooking.status}
                   onValueChange={(v) => {
-                    handleStatusChange(selectedBooking, v as BookingStatus);
-                    setSelectedBooking({
-                      ...selectedBooking,
-                      status: v as BookingStatus,
-                    });
+                    void handleStatusChange(
+                      selectedBooking,
+                      v as BookingStatus,
+                    );
                   }}
                 >
                   <SelectTrigger size="sm" className="h-8 w-auto">
@@ -1262,9 +1534,9 @@ function BookingsTab({
         {emailDialog && (
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>Send Confirmation Email</DialogTitle>
+              <DialogTitle>Prepare Confirmation Email</DialogTitle>
               <DialogDescription>
-                Send a booking confirmation to{" "}
+                Open a ready-to-send confirmation in your email app for{" "}
                 <strong>
                   {emailDialog.firstName} {emailDialog.lastName}
                 </strong>
@@ -1309,11 +1581,11 @@ function BookingsTab({
                 {sending ? (
                   <>
                     <span className="mr-1.5 h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Sending...
+                    Preparing...
                   </>
                 ) : (
                   <>
-                    <Mail className="mr-1.5 h-3.5 w-3.5" /> Send Email
+                    <Mail className="mr-1.5 h-3.5 w-3.5" /> Open Email Draft
                   </>
                 )}
               </Button>
@@ -1348,9 +1620,13 @@ function BookingsTab({
               size="sm"
               onClick={async () => {
                 if (deleteBookingId) {
-                  await removeBooking(deleteBookingId);
-                  showToast("Booking deleted");
-                  setDeleteBookingId(null);
+                  try {
+                    await removeBooking(deleteBookingId);
+                    showToast("Booking deleted");
+                    setDeleteBookingId(null);
+                  } catch {
+                    showToast("Failed to delete booking", "error");
+                  }
                 }
               }}
             >
@@ -1579,11 +1855,16 @@ function MaintenanceTab({
                 <Select
                   value={m.status}
                   onValueChange={(v) => {
-                    updateMaintenanceStatus(
+                    void updateMaintenanceStatus(
                       m.id,
                       v as "open" | "in-progress" | "resolved",
-                    );
-                    showToast(`${m.id.slice(0, 8)}... → ${v}`);
+                    )
+                      .then(() =>
+                        showToast(`${m.id.slice(0, 8)}... → ${v}`),
+                      )
+                      .catch(() =>
+                        showToast("Failed to update request", "error"),
+                      );
                   }}
                 >
                   <SelectTrigger size="sm" className="h-7 text-xs">
@@ -1646,9 +1927,13 @@ function MaintenanceTab({
               size="sm"
               onClick={async () => {
                 if (deleteId) {
-                  await removeMaintenance(deleteId);
-                  showToast("Maintenance request deleted");
-                  setDeleteId(null);
+                  try {
+                    await removeMaintenance(deleteId);
+                    showToast("Maintenance request deleted");
+                    setDeleteId(null);
+                  } catch {
+                    showToast("Failed to delete maintenance request", "error");
+                  }
                 }
               }}
             >

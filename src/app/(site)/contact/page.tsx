@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   MapPin,
   Phone,
+  Mail,
   MessageCircle,
   Clock,
   CheckCircle2,
@@ -22,7 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
-import emailjs from "@emailjs/browser";
+import { useSiteSettings } from "@/components/site-settings-provider";
+import { phoneHref, whatsappHref } from "@/lib/site-settings";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -38,6 +40,7 @@ const fadeUp = {
 };
 
 export default function ContactPage() {
+  const settings = useSiteSettings();
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -68,25 +71,6 @@ export default function ContactPage() {
 
       if (!res.ok) {
         throw new Error("Failed to send message");
-      }
-
-      // Try sending email via EmailJS (non-blocking)
-      try {
-        await emailjs.send(
-          "service_danmes",
-          "template_contact",
-          {
-            from_name: `${data.firstName} ${data.lastName}`,
-            from_email: data.email,
-            phone: data.phone,
-            subject: data.subject,
-            message: data.message,
-            to_name: "Prime Danmes Apartments",
-          },
-          "YOUR_PUBLIC_KEY",
-        );
-      } catch {
-        // Email sending is optional — message is saved in DB
       }
 
       setSuccess(true);
@@ -174,9 +158,9 @@ export default function ContactPage() {
                 <div>
                   <p className="text-sm font-semibold">Address</p>
                   <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                    House Number T, 26B SSNIT ST,
+                    {settings.addressLine1},
                     <br />
-                    Anaji Takoradi - Ghana
+                    {settings.addressLine2}
                   </p>
                 </div>
               </motion.div>
@@ -192,7 +176,7 @@ export default function ContactPage() {
                 <div>
                   <p className="text-sm font-semibold">GPS Address</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    WK-391-2390
+                    {settings.gpsAddress}
                   </p>
                 </div>
               </motion.div>
@@ -208,17 +192,19 @@ export default function ContactPage() {
                 <div>
                   <p className="text-sm font-semibold">Phone</p>
                   <a
-                    href="tel:+233598164027"
+                    href={phoneHref(settings.phone1)}
                     className="mt-1 block text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    +233 59 816 4027
+                    {settings.phone1}
                   </a>
-                  <a
-                    href="tel:+233202361616"
-                    className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    +233 20 236 1616
-                  </a>
+                  {settings.phone2 && (
+                    <a
+                      href={phoneHref(settings.phone2)}
+                      className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {settings.phone2}
+                    </a>
+                  )}
                 </div>
               </motion.div>
 
@@ -227,26 +213,16 @@ export default function ContactPage() {
                 custom={5}
                 className="flex items-start gap-4"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-500/10 text-green-600">
-                  <MessageCircle className="h-5 w-5" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Mail className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">WhatsApp</p>
+                  <p className="text-sm font-semibold">Email</p>
                   <a
-                    href="https://wa.me/233244893605"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`mailto:${settings.email}`}
                     className="mt-1 block text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    +233 24 489 3605
-                  </a>
-                  <a
-                    href="https://wa.me/12404756569"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    +1 240 475 6569
+                    {settings.email}
                   </a>
                 </div>
               </motion.div>
@@ -256,26 +232,57 @@ export default function ContactPage() {
                 custom={6}
                 className="flex items-start gap-4"
               >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-500/10 text-green-600">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">WhatsApp</p>
+                  <a
+                    href={whatsappHref(settings.whatsapp1)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {settings.whatsapp1}
+                  </a>
+                  {settings.whatsapp2 && (
+                    <a
+                      href={whatsappHref(settings.whatsapp2)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {settings.whatsapp2}
+                    </a>
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={fadeUp}
+                custom={7}
+                className="flex items-start gap-4"
+              >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Clock className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold">Office Hours</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Monday &ndash; Friday: 8:00 AM &ndash; 6:00 PM
+                    {settings.officeHoursWeekdays}
                     <br />
-                    Saturday: 9:00 AM &ndash; 3:00 PM
+                    {settings.officeHoursSaturday}
                     <br />
-                    Sunday: Closed
+                    {settings.officeHoursSunday}
                   </p>
                 </div>
               </motion.div>
             </div>
 
             {/* WhatsApp CTA */}
-            <motion.div variants={fadeUp} custom={7} className="mt-10">
+            <motion.div variants={fadeUp} custom={8} className="mt-10">
               <a
-                href="https://wa.me/233244893605"
+                href={whatsappHref(settings.whatsapp1)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/25 transition-all duration-300 hover:bg-green-700 hover:scale-105 hover:shadow-xl hover:shadow-green-600/30"
@@ -403,12 +410,12 @@ export default function ContactPage() {
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
           <h2 className="text-xl font-semibold">Find Us</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Located on SSNIT Street, Anaji Takoradi, Ghana.
+            {settings.addressLine1}, {settings.addressLine2}.
           </p>
           <div className="mt-6 overflow-hidden rounded-2xl border shadow-inner">
             <iframe
               title="Prime Danmes Apartments location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.0!2d-1.7466!3d4.9045!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNMKwNTQnMTYuMiJOIDHCsDQ0JzQ3LjgiVw!5e0!3m2!1sen!2sgh!4v1"
+              src={settings.mapEmbedUrl}
               className="h-80 w-full border-0"
               allowFullScreen
               loading="lazy"

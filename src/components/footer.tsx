@@ -1,9 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Phone, Mail, MessageCircle, Navigation } from "lucide-react";
+import { Mail, MapPin, Phone, MessageCircle, Navigation } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useSiteSettings } from "@/components/site-settings-provider";
+import { phoneHref, whatsappHref } from "@/lib/site-settings";
 
 export default function Footer() {
+  const settings = useSiteSettings();
+
   return (
     <footer className="border-t bg-foreground text-background">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -15,6 +21,7 @@ export default function Footer() {
                   src="/danmes-logo.jpeg"
                   alt="Prime Danmes logo"
                   fill
+                  sizes="40px"
                   className="object-cover"
                 />
               </div>
@@ -34,7 +41,7 @@ export default function Footer() {
             </p>
             <div className="flex gap-3">
               <a
-                href="https://wa.me/233244893605"
+                href={whatsappHref(settings.whatsapp1)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-background/10 text-background/70 transition-all duration-300 hover:bg-primary hover:text-primary-foreground hover:scale-110"
@@ -42,15 +49,17 @@ export default function Footer() {
               >
                 <MessageCircle className="h-4 w-4" />
               </a>
-              <a
-                href="https://wa.me/12404756569"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-background/10 text-background/70 transition-all duration-300 hover:bg-primary hover:text-primary-foreground hover:scale-110"
-                aria-label="WhatsApp US"
-              >
-                <Phone className="h-4 w-4" />
-              </a>
+              {settings.whatsapp2 && (
+                <a
+                  href={whatsappHref(settings.whatsapp2)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-background/10 text-background/70 transition-all duration-300 hover:bg-primary hover:text-primary-foreground hover:scale-110"
+                  aria-label="Secondary WhatsApp"
+                >
+                  <Phone className="h-4 w-4" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -107,32 +116,34 @@ export default function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span className="text-sm text-background/60">
-                  House Number T, 26B SSNIT ST,
+                  {settings.addressLine1},
                   <br />
-                  Anaji Takoradi - Ghana
+                  {settings.addressLine2}
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span className="text-sm text-background/60">
-                  GPS: WK-391-2390
+                  GPS: {settings.gpsAddress}
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <Phone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div className="text-sm text-background/60">
                   <a
-                    href="tel:+233598164027"
+                    href={phoneHref(settings.phone1)}
                     className="transition-colors hover:text-background block"
                   >
-                    +233 59 816 4027
+                    {settings.phone1}
                   </a>
-                  <a
-                    href="tel:+233202361616"
-                    className="transition-colors hover:text-background block"
-                  >
-                    +233 20 236 1616
-                  </a>
+                  {settings.phone2 && (
+                    <a
+                      href={phoneHref(settings.phone2)}
+                      className="transition-colors hover:text-background block"
+                    >
+                      {settings.phone2}
+                    </a>
+                  )}
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -142,22 +153,33 @@ export default function Footer() {
                     WhatsApp
                   </span>
                   <a
-                    href="https://wa.me/233244893605"
+                    href={whatsappHref(settings.whatsapp1)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="transition-colors hover:text-background block"
                   >
-                    +233 24 489 3605
+                    {settings.whatsapp1}
                   </a>
-                  <a
-                    href="https://wa.me/12404756569"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors hover:text-background block"
-                  >
-                    +1 240 475 6569
-                  </a>
+                  {settings.whatsapp2 && (
+                    <a
+                      href={whatsappHref(settings.whatsapp2)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-colors hover:text-background block"
+                    >
+                      {settings.whatsapp2}
+                    </a>
+                  )}
                 </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <a
+                  href={`mailto:${settings.email}`}
+                  className="text-sm text-background/60 transition-colors hover:text-background"
+                >
+                  {settings.email}
+                </a>
               </li>
             </ul>
           </div>
